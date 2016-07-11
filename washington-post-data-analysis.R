@@ -1,8 +1,3 @@
-# The Washington Post is compiling a database of every
-# fatal shooting in the United States by a police officer
-# in the line of duty in 2015 and 2016. The data is published
-# on Github https://github.com/washingtonpost/data-police-shootings
-
 # Author: Allen Akinkunle
 # Email: hello@allenkunle.me
 # Twitter: @allenakinkunle
@@ -28,7 +23,6 @@ shooting_data$age[is.na(shooting_data$age)] <- 0
 #############################################################
 # 1. Plot a distribution of killings by age
 #############################################################
-# There are 37 missing values in the Age column. Recode as 0
 shooting_data$cat_age <- 
   cut(shooting_data$age, 
       breaks = c(-Inf, 1, 18, 30, 45, 60, Inf),  
@@ -55,18 +49,22 @@ plotly_POST(killings_by_age_group_plot, "Number of Police Killings by Age Group 
 # 2. Plot a choropleth map for killings by state
 #############################################################
 
-shooting_data$state_name <- ifelse(is.na(match(shooting_data$state, state.abb)), 
+index <- match(shooting_data$state, state.abb)
+shooting_data$state_name <- ifelse(is.na(index), 
                                    "District of Columbia", state.name[index])
 
-state_population_data <- read.csv("state_population_data.csv")
+# Read the state population data
+state_population_data <- 
+  read.csv("https://raw.githubusercontent.com/allenakinkunle/washington-post-data-analysis/master/state_population_data.csv")
 
-killings_by_state_plot <- shooting_data %>%
+killings_by_state <- shooting_data %>%
   group_by(state_name, state) %>%
   summarise(count = n()) %>%
-  merge(statedata, by.x = "state_name", by.y = "name") %>%
+  merge(state_population_data, by = "state_name") %>%
   mutate(
-    shooting_per_million = round(count / ((population / 1000000)), digits = 2),
-    hover = paste(state_name, '<br>', shooting_per_million, 'per million people', 
+    # calculate the killings per million for each state
+    killings_per_million = round(count / ((population / 1000000)), digits = 2),
+    hover = paste(state_name, '<br>', killings_per_million, 'per million people', 
                   '<br>', count, 'shootings since January 2015')
   )
 
@@ -76,8 +74,9 @@ l <- list(color = toRGB("white"), width = 1)
 # specify some map projection/options
 g <- list(scope = 'usa')
 
-plot_ly(killings_by_state_plot, z = shooting_per_million, text = hover, locations = state, type = 'choropleth',
-        locationmode = 'USA-states', color = shooting_per_million, colors = 'Reds',
+plot_ly(killings_by_state, z = killings_per_million, text = hover, locations = state, type = 'choropleth',
+        locationmode = 'USA-states', color = killings_per_million, colors = 'Reds',
         marker = list(line = l), colorbar = list(title = "Police killings per million people", 
                                                  lenmode="pixels", titleside="right", xpad=0, ypad=0)) %>%
   layout(title = 'Police killings per million people in United States (Jan 2015 - July 2016))', geo = g)
+
